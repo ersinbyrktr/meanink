@@ -1,0 +1,81 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Notepad Chat</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 40px;
+        }
+        .nav-bar {
+            margin-bottom: 20px;
+        }
+        .nav-bar a {
+            margin-right: 15px;
+            text-decoration: none;
+            color: blue;
+        }
+        .chat-container {
+            max-width: 600px;
+            margin: 0 auto;
+        }
+        .message {
+            margin-bottom: 15px;
+        }
+        .message.user {
+            text-align: right;
+        }
+        .message.assistant {
+            text-align: left;
+        }
+        .message p {
+            display: inline-block;
+            padding: 10px;
+            border-radius: 10px;
+            max-width: 80%;
+        }
+        .message.user p {
+            background-color: #dcf8c6;
+        }
+        .message.assistant p {
+            background-color: #f1f0f0;
+        }
+        .input-container {
+            text-align: center;
+            margin-top: 20px;
+        }
+        input[type="text"] {
+            width: 80%;
+            padding: 10px;
+            font-size: 16px;
+        }
+        input[type="submit"] {
+            padding: 10px;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="nav-bar">
+        <a href="{{ url_for('search') }}">Search</a>
+        <a href="{{ url_for('chat') }}">Chat</a>
+    </div>
+    <div class="chat-container">
+        <h1>Notepad Chat</h1>
+        <div class="chat-messages">
+            {% for message in messages %}
+            <div class="message {{ message.sender|lower }}">
+                <p><strong>{{ message.sender }}:</strong> {{ message.text }}</p>
+            </div>
+            {% endfor %}
+        </div>
+        <form method="POST">
+            <div class="input-container">
+                <input type="text" name="user_input" placeholder="Type your message..." required>
+                <input type="submit" value="Send">
+            </div>
+        </form>
+    </div>
+</body>
+</html>
