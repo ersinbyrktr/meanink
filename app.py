@@ -6,28 +6,30 @@ from flask import Flask, render_template, request
 from llama_index.core import SimpleDirectoryReader, VectorStoreIndex, StorageContext, \
     load_index_from_storage, Settings
 from llama_index.core.node_parser import SimpleNodeParser
-from llama_index.core.query_engine import RetrieverQueryEngine
 from llama_index.core.schema import NodeRelationship, TextNode
 from llama_index.embeddings.openai import OpenAIEmbedding, OpenAIEmbeddingModelType
 from llama_index.llms.openai import OpenAI
 
-from config import openai_key
+from app.config import config
 
-os.environ["OPENAI_API_KEY"] = openai_key
+os.environ["OPENAI_API_KEY"] = config.OPENAI_API_KEY
 
 nltk.download('punkt')
+nltk.download('punkt_tab')
 
 app = Flask(__name__)
 
 # Global variables to store the index and embedding model
-index: VectorStoreIndex = None
+index: VectorStoreIndex = VectorStoreIndex(embed_model=Settings.embed_model)
+# Define the storage directory
+index_storage_dir = './index_storage'
+index.storage_context.persist(persist_dir=index_storage_dir)
 
 
 # Function to initialize the index
 # Function to initialize the index
 def initialize_index():
     global index
-
     # Specify the directory containing your text files
     directory_path = 'notepad_data'
 
@@ -35,43 +37,53 @@ def initialize_index():
     Settings.embed_model = OpenAIEmbedding(embed_batch_size=10, model=OpenAIEmbeddingModelType.TEXT_EMBED_3_LARGE)
     Settings.llm = OpenAI()
 
-    # Define the storage directory
-    index_storage_dir = './index_storage'
 
-    if not os.path.exists(index_storage_dir):
-        # Read documents from the directory
-        documents = SimpleDirectoryReader(directory_path).load_data()
-
-        # Create parent nodes with larger chunk size
-        parent_parser = SimpleNodeParser(chunk_size=256, chunk_overlap=50)
-        parent_nodes = parent_parser.get_nodes_from_documents(documents)
+    if not is_indexed(index_storage_dir):
+        parent_nodes = parse_parent_nodes(directory_path)
 
         # Initialize list to hold all nodes (parents and leafs)
         all_nodes = []
 
         # For each parent node, create leaf nodes (sentences)
         for parent_node in parent_nodes:
-            # Split parent node text into sentences
-            sentences = nltk.sent_tokenize(parent_node.get_text())
-            children = parent_node.child_nodes or []
-            for sentence in sentences:
-                # Create a leaf node for each sentence
-                leaf_node = TextNode()
-                leaf_node.set_content(sentence)
-                leaf_node.relationships[NodeRelationship.PARENT] = parent_node.as_related_node_info()
-
-                children.append(leaf_node.as_related_node_info())
-
-                all_nodes.append(leaf_node)
-            parent_node.relationships[NodeRelationship.CHILD] = children
+            children = parse_child_nodes(parent_node)
             # Add the parent node to the list
+            all_nodes += children
             all_nodes.append(parent_node)
 
-        index = VectorStoreIndex(all_nodes, embed_model=Settings.embed_model)
+
+        index.insert_nodes(all_nodes)
         index.storage_context.persist(persist_dir=index_storage_dir)
     else:
         storage_context = StorageContext.from_defaults(persist_dir=index_storage_dir)
         index = load_index_from_storage(storage_context)
+
+
+def parse_child_nodes(parent_node):
+    # Split parent node text into sentences
+    children = parent_node.child_nodes or []
+    sentences = nltk.sent_tokenize(parent_node.get_text())
+    for sentence in sentences:
+        # Create a leaf node for each sentence
+        leaf_node = TextNode()
+        leaf_node.set_content(sentence)
+        leaf_node.relationships[NodeRelationship.PARENT] = parent_node.as_related_node_info()
+        children.append(leaf_node.as_related_node_info())
+    parent_node.relationships[NodeRelationship.CHILD] = children
+    return children
+
+
+def parse_parent_nodes(directory_path):
+    # Read documents from the directory
+    documents = SimpleDirectoryReader(directory_path).load_data()
+    # Create parent nodes with larger chunk size
+    parent_parser = SimpleNodeParser(chunk_size=256, chunk_overlap=50)
+    parent_nodes = parent_parser.get_nodes_from_documents(documents)
+    return parent_nodes
+
+
+def is_indexed(index_storage_dir):
+    return os.path.exists(index_storage_dir)
 
 
 initialize_index()
@@ -102,7 +114,6 @@ def search():
         query = request.form['query']
         # Create query engine
         query_engine = index.as_query_engine(similarity_top_k=10)
-        RetrieverQueryEngine
         # Perform search
         response = query_engine.query(query)
         # Collect all similarity scores

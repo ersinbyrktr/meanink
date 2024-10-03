@@ -1,0 +1,17 @@
+Flask
+Flask_SQLAlchemy
+psycopg2-binary
+Flask-Migrate
+Flask-RESTful
+Flask-Cors
+python-dotenv
+requests
+SQLAlchemy
+openai
+llama-index
+pgvector
+Flask-JWT-Extended
+cryptography
+SQLAlchemy-Utils
+
+feedparser

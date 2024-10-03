@@ -1,0 +1,28 @@
+# Use postgres/example user/password credentials
+version: '3.9'
+
+services:
+
+  postgres:
+    image: pgvector/pgvector:0.7.4-pg16
+    hostname: localhost
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: erso
+      POSTGRES_PASSWORD: 123456
+      POSTGRES_DB: meanink
+    restart: unless-stopped
+    volumes:
+      - meanink:/home/db
+
+  adminer:
+    image: adminer
+    restart: always
+    ports:
+      - 8080:8080
+    depends_on:
+      - postgres
+
+volumes:
+  meanink:
